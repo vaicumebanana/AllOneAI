@@ -167,23 +167,8 @@
         let currentModel = "";
         let currentConversation = [];
 
-        // Carregar conversa salva ao iniciar
-        function loadConversation() {
-            const savedConversation = localStorage.getItem('aiConversation');
-            if (savedConversation) {
-                currentConversation = JSON.parse(savedConversation);
-                // Reconstruir o chat a partir do localStorage
-                document.getElementById('chat-history').innerHTML = '';
-                currentConversation.forEach(msg => {
-                    addMessage(msg.content, msg.role === 'user' ? 'user' : 'ai');
-                });
-            }
-        }
-
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
-            loadConversation();
-            
             document.getElementById('model-selector').addEventListener('change', function() {
                 currentModel = this.value;
                 const model = models[currentModel];
@@ -191,7 +176,11 @@
                     ? `<b>${model.name}</b>: ${model.description}`
                     : "Selecione um modelo";
                 
-                if (currentConversation.length === 0 && model) {
+                // Limpar a conversa quando mudar de modelo
+                currentConversation = [];
+                document.getElementById('chat-history').innerHTML = '';
+                
+                if (model) {
                     addMessage(`Você está conversando com ${model.name}. Como posso ajudar?`, 'ai');
                 }
             });
@@ -217,7 +206,6 @@
                 .then(response => {
                     addMessage(response, 'ai');
                     currentConversation.push({role: 'assistant', content: response});
-                    localStorage.setItem('aiConversation', JSON.stringify(currentConversation));
                 })
                 .catch(err => {
                     addMessage("Erro: " + err.message, 'error');
