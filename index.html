@@ -128,12 +128,11 @@
         <h3>Selecione o Modelo</h3>
         <select id="model-selector">
             <option value="">-- Selecione --</option>
-            <option value="openrouter:openai/gpt-4">GPT-4 (OpenAI)</option>
-            <option value="openrouter:anthropic/claude-2">Claude 2 (Anthropic)</option>
-            <option value="openrouter:google/palm-2">PaLM 2 (Google)</option>
-            <option value="openrouter:meta-llama/llama-2-70b">Llama 2 70B (Meta)</option>
-            <option value="openrouter:openai/gpt-3.5-turbo">GPT-3.5 Turbo (OpenAI)</option>
-            <option value="openrouter:anthropic/claude-3-sonnet">Claude 3 Sonnet (Anthropic)</option>
+            <option value="openrouter:openai/gpt-4o">GPT-4o (OpenAI)</option>
+            <option value="openrouter:anthropic/claude-3-opus">Claude 3 Opus (Anthropic)</option>
+            <option value="openrouter:google/gemini-2.5-pro">Gemini 2.5 Pro (Google)</option>
+            <option value="openrouter:meta-llama/llama-3-70b-instruct">Llama 3 70B (Meta)</option>
+            <option value="openrouter:mistralai/mistral-large">Mistral Large (Mistral)</option>
         </select>
         <div id="model-info">Selecione um modelo para ver sua descrição</div>
     </div>
@@ -143,91 +142,85 @@
     <script src="https://js.puter.com/v2/"></script>
     <script>
         const models = {
-            "openrouter:openai/gpt-4": {
-                name: "GPT-4",
-                description: "Modelo mais avançado da OpenAI com raciocínio complexo"
+            "openrouter:openai/gpt-4o": {
+                name: "GPT-4o",
+                description: "Modelo mais avançado da OpenAI"
             },
-            "openrouter:anthropic/claude-2": {
-                name: "Claude 2", 
-                description: "Modelo topo de linha da Anthropic com foco em segurança"
+            "openrouter:anthropic/claude-3-opus": {
+                name: "Claude 3 Opus", 
+                description: "Modelo topo de linha da Anthropic"
             },
-            "openrouter:google/palm-2": {
-                name: "PaLM 2",
-                description: "Modelo avançado do Google com amplo conhecimento"
+            "openrouter:google/gemini-2.5-pro": {
+                name: "Gemini 2.5 Pro",
+                description: "Modelo avançado do Google"
             },
-            "openrouter:meta-llama/llama-2-70b": {
-                name: "Llama 2 70B",
-                description: "Modelo open-source da Meta com ótimo desempenho"
+            "openrouter:meta-llama/llama-3-70b-instruct": {
+                name: "Llama 3 70B",
+                description: "Modelo open-source da Meta"
             },
-            "openrouter:openai/gpt-3.5-turbo": {
-                name: "GPT-3.5 Turbo",
-                description: "Versão rápida e eficiente do modelo da OpenAI"
-            },
-            "openrouter:anthropic/claude-3-sonnet": {
-                name: "Claude 3 Sonnet",
-                description: "Versão balanceada da série Claude 3 da Anthropic"
+            "openrouter:mistralai/mistral-large": {
+                name: "Mistral Large",
+                description: "Modelo avançado da Mistral AI"
             }
         };
 
         let currentModel = "";
         let currentConversation = [];
 
+        // Carregar conversa salva ao iniciar
+        function loadConversation() {
+            const savedConversation = localStorage.getItem('aiConversation');
+            if (savedConversation) {
+                currentConversation = JSON.parse(savedConversation);
+                // Reconstruir o chat a partir do localStorage
+                document.getElementById('chat-history').innerHTML = '';
+                currentConversation.forEach(msg => {
+                    addMessage(msg.content, msg.role === 'user' ? 'user' : 'ai');
+                });
+            }
+        }
+
+        // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
-            const modelSelector = document.getElementById('model-selector');
-            const userInput = document.getElementById('user-input');
-            const sendButton = document.getElementById('send-button');
+            loadConversation();
             
-            modelSelector.addEventListener('change', function() {
+            document.getElementById('model-selector').addEventListener('change', function() {
                 currentModel = this.value;
                 const model = models[currentModel];
+                document.getElementById('model-info').innerHTML = model 
+                    ? `<b>${model.name}</b>: ${model.description}`
+                    : "Selecione um modelo";
                 
-                if (model) {
-                    document.getElementById('model-info').innerHTML = 
-                        `<strong>${model.name}</strong><br>${model.description}`;
-                    
-                    // Reset conversation when changing model
-                    currentConversation = [];
-                    document.getElementById('chat-history').innerHTML = 
-                        `<div class="ai-message">Você está conversando com ${model.name}. Como posso ajudar?</div>`;
-                } else {
-                    document.getElementById('model-info').textContent = "Selecione um modelo";
+                if (currentConversation.length === 0 && model) {
+                    addMessage(`Você está conversando com ${model.name}. Como posso ajudar?`, 'ai');
                 }
             });
 
-            sendButton.addEventListener('click', sendMessage);
-            userInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    sendMessage();
-                }
+            document.getElementById('send-button').addEventListener('click', sendMessage);
+            document.getElementById('user-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
             });
         });
 
         function sendMessage() {
             const input = document.getElementById('user-input');
             const message = input.value.trim();
-            
-            if (!message) return;
-            if (!currentModel) {
-                alert("Por favor, selecione um modelo primeiro");
-                return;
-            }
+            if (!message || !currentModel) return;
 
             addMessage(message, 'user');
             input.value = '';
             document.getElementById('loading').style.display = 'block';
-            
-            // Adiciona a mensagem do usuário à conversa
             currentConversation.push({role: 'user', content: message});
 
-            // Chama a API do Puter.ai corretamente
+            // Chamada original da API Puter.ai
             puter.ai.chat(currentConversation, {model: currentModel})
                 .then(response => {
                     addMessage(response, 'ai');
                     currentConversation.push({role: 'assistant', content: response});
+                    localStorage.setItem('aiConversation', JSON.stringify(currentConversation));
                 })
                 .catch(err => {
-                    console.error("Erro na API:", err);
-                    addMessage("Ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.", 'error');
+                    addMessage("Erro: " + err.message, 'error');
                 })
                 .finally(() => {
                     document.getElementById('loading').style.display = 'none';
