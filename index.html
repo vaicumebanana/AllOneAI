@@ -181,9 +181,25 @@
         let currentConversation = [];
         let userMessageCount = 0; // Novo contador para mensagens do usuário
         const MESSAGE_LIMIT = 10; // Limite de mensagens
+        const LOCAL_STORAGE_KEY = 'allOneAiUserMessageCount'; // Chave para o LocalStorage
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
+            // Tenta carregar o contador de mensagens do LocalStorage
+            const storedCount = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (storedCount) {
+                userMessageCount = parseInt(storedCount, 10);
+            }
+
+            // Verifica o limite ao carregar a página
+            if (userMessageCount >= MESSAGE_LIMIT) {
+                document.getElementById('pro-version-message').style.display = 'block';
+                enableChat(false);
+                addMessage("Você atingiu o limite de mensagens gratuitas. Pague para acessar a versão pro!", 'error');
+            } else {
+                addMessage("Olá! Escolha um modelo abaixo e comece a conversar!", 'ai');
+            }
+
             document.getElementById('model-selector').addEventListener('change', function() {
                 currentModel = this.value;
                 const model = models[currentModel];
@@ -191,13 +207,19 @@
                     ? `<b>${model.name}</b>: ${model.description}`
                     : "Selecione um modelo";
                 
-                // Limpar a conversa e resetar o contador de mensagens quando mudar de modelo
+                // Limpar a conversa e resetar o contador de mensagens (mas NÃO o do LocalStorage)
                 currentConversation = [];
-                userMessageCount = 0;
-                document.getElementById('chat-history').innerHTML = '';
-                document.getElementById('pro-version-message').style.display = 'none'; // Esconde a mensagem pro
-                enableChat(true); // Reabilita o chat
+                // Reabilitar chat se o limite não foi atingido
+                if (userMessageCount < MESSAGE_LIMIT) {
+                    enableChat(true);
+                    document.getElementById('pro-version-message').style.display = 'none'; // Esconde a mensagem pro
+                } else {
+                    // Se já atingiu o limite, mantém desabilitado e a mensagem pro visível
+                    document.getElementById('pro-version-message').style.display = 'block';
+                    enableChat(false);
+                }
 
+                document.getElementById('chat-history').innerHTML = ''; // Limpa o histórico visualmente
                 if (model) {
                     addMessage(`Você está conversando com ${model.name}. Como posso ajudar?`, 'ai');
                 }
@@ -227,6 +249,7 @@
             document.getElementById('loading').style.display = 'block';
             currentConversation.push({role: 'user', content: message});
             userMessageCount++; // Incrementa o contador de mensagens do usuário
+            localStorage.setItem(LOCAL_STORAGE_KEY, userMessageCount); // Salva no LocalStorage
 
             // Chamada original da API Puter.ai
             puter.ai.chat(currentConversation, {model: currentModel})
@@ -238,6 +261,7 @@
                     if (userMessageCount >= MESSAGE_LIMIT) {
                         document.getElementById('pro-version-message').style.display = 'block';
                         enableChat(false); // Desabilita o chat
+                        addMessage("Você atingiu o limite de mensagens gratuitas. Pague para acessar a versão pro!", 'error');
                     }
                 })
                 .catch(err => {
@@ -271,14 +295,20 @@
 
         // Função para habilitar/desabilitar o input e o botão de enviar
         function enableChat(enabled) {
-            document.getElementById('user-input').disabled = !enabled;
-            document.getElementById('send-button').disabled = !enabled;
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            userInput.disabled = !enabled;
+            sendButton.disabled = !enabled;
             if (!enabled) {
-                document.getElementById('user-input').placeholder = "Limite de mensagens atingido. Pague para continuar.";
+                userInput.placeholder = "Limite de mensagens atingido. Pague para continuar.";
+                sendButton.style.backgroundColor = '#ccc'; // Estilo para botão desabilitado
+                sendButton.style.cursor = 'not-allowed';
             } else {
-                document.getElementById('user-input').placeholder = "Digite sua mensagem...";
+                userInput.placeholder = "Digite sua mensagem...";
+                sendButton.style.backgroundColor = '#4CAF50'; // Estilo original do botão
+                sendButton.style.cursor = 'pointer';
             }
         }
     </script>
 </body>
-</html>
+</html
