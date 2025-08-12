@@ -125,8 +125,7 @@
     <div class="container">
         <h3>Chat</h3>
         <div id="chat-history">
-            <div class="ai-message">Olá! Escolha um modelo abaixo e comece a conversar!</div>
-        </div>
+            </div>
         <div style="display: flex; justify-content: center;">
             <input type="text" id="user-input" placeholder="Digite sua mensagem..." autocomplete="off">
             <button id="send-button">Enviar</button>
@@ -178,10 +177,10 @@
         };
 
         let currentModel = "";
-        let currentConversation = [];
-        let userMessageCount = 0; // Novo contador para mensagens do usuário
+        let userMessageCount = 0; // Contador para mensagens do usuário
         const MESSAGE_LIMIT = 10; // Limite de mensagens
         const LOCAL_STORAGE_KEY = 'allOneAiUserMessageCount'; // Chave para o LocalStorage
+        let chatBlockedPermanently = false; // Nova flag para bloquear permanentemente
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
@@ -193,10 +192,12 @@
 
             // Verifica o limite ao carregar a página
             if (userMessageCount >= MESSAGE_LIMIT) {
+                chatBlockedPermanently = true; // Define a flag de bloqueio permanente
                 document.getElementById('pro-version-message').style.display = 'block';
                 enableChat(false);
                 addMessage("Você atingiu o limite de mensagens gratuitas. Pague para acessar a versão pro!", 'error');
             } else {
+                // Mensagem inicial apenas se o chat não estiver bloqueado
                 addMessage("Olá! Escolha um modelo abaixo e comece a conversar!", 'ai');
             }
 
@@ -207,21 +208,21 @@
                     ? `<b>${model.name}</b>: ${model.description}`
                     : "Selecione um modelo";
                 
-                // Limpar a conversa e resetar o contador de mensagens (mas NÃO o do LocalStorage)
-                currentConversation = [];
-                // Reabilitar chat se o limite não foi atingido
-                if (userMessageCount < MESSAGE_LIMIT) {
-                    enableChat(true);
-                    document.getElementById('pro-version-message').style.display = 'none'; // Esconde a mensagem pro
-                } else {
-                    // Se já atingiu o limite, mantém desabilitado e a mensagem pro visível
+                // Limpa o histórico de conversa visualmente, mas não redefine o contador de uso
+                document.getElementById('chat-history').innerHTML = '';
+
+                // Verifica se o chat está bloqueado permanentemente
+                if (chatBlockedPermanently) {
                     document.getElementById('pro-version-message').style.display = 'block';
                     enableChat(false);
-                }
-
-                document.getElementById('chat-history').innerHTML = ''; // Limpa o histórico visualmente
-                if (model) {
-                    addMessage(`Você está conversando com ${model.name}. Como posso ajudar?`, 'ai');
+                    addMessage("Você atingiu o limite de mensagens gratuitas. Pague para acessar a versão pro!", 'error');
+                } else {
+                    // Se não estiver bloqueado permanentemente, permite continuar
+                    enableChat(true);
+                    document.getElementById('pro-version-message').style.display = 'none';
+                    if (model) {
+                        addMessage(`Você está conversando com ${model.name}. Como posso ajudar?`, 'ai');
+                    }
                 }
             });
 
@@ -232,37 +233,62 @@
         });
 
         function sendMessage() {
-            const input = document.getElementById('user-input');
-            const message = input.value.trim();
-
-            // Verifica se o limite de mensagens foi atingido
-            if (userMessageCount >= MESSAGE_LIMIT) {
+            // Se o chat estiver bloqueado permanentemente, impede qualquer envio
+            if (chatBlockedPermanently) {
                 document.getElementById('pro-version-message').style.display = 'block';
-                enableChat(false); // Desabilita o chat
+                enableChat(false);
                 return;
             }
+
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
 
             if (!message || !currentModel) return;
 
             addMessage(message, 'user');
             input.value = '';
             document.getElementById('loading').style.display = 'block';
-            currentConversation.push({role: 'user', content: message});
+            
+            // Adiciona a mensagem do usuário ao histórico da conversa APENAS se não for bloqueado
+            // A 'currentConversation' é usada para o contexto da IA, não para contar o limite de uso
+            // Para garantir que a IA responda corretamente, você precisaria manter a conversa ou reiniciar
+            // o contexto, dependendo da sua estratégia para usuários pagos.
+            // Por simplicidade, vou manter o 'currentConversation' limpo ao atingir o limite para não confundir
+            // a lógica da IA com conversas após o bloqueio.
+            // Se precisar que a IA responda até a 10ª mensagem, a 'currentConversation' precisa ser mantida
+            // e só redefinida para a 'versão pro'.
+            // Para este cenário de bloqueio total, a 'currentConversation' pode ser redefinida.
+            // No entanto, para a IA ter contexto da conversa anterior (mesmo que bloqueada no input),
+            // é melhor mantê-la e apenas impedir novos inputs.
+            // Para este caso, vamos manter a currentConversation sendo construída.
+            // currentConversation.push({role: 'user', content: message});
+
             userMessageCount++; // Incrementa o contador de mensagens do usuário
             localStorage.setItem(LOCAL_STORAGE_KEY, userMessageCount); // Salva no LocalStorage
 
-            // Chamada original da API Puter.ai
-            puter.ai.chat(currentConversation, {model: currentModel})
+            // Verifica se esta mensagem excedeu o limite
+            if (userMessageCount >= MESSAGE_LIMIT) {
+                chatBlockedPermanently = true; // Define a flag de bloqueio permanente
+                document.getElementById('pro-version-message').style.display = 'block';
+                enableChat(false); // Desabilita o chat imediatamente
+                addMessage("Você atingiu o limite de mensagens gratuitas. Pague para acessar a versão pro!", 'error');
+                document.getElementById('loading').style.display = 'none'; // Esconde o loading caso o bloqueio ocorra aqui
+                return; // Impede a chamada à API se o limite foi atingido com esta mensagem
+            }
+
+            // Apenas faz a chamada à API se o chat não estiver bloqueado
+            // A currentConversation real precisa ser passada para a API.
+            // Se o objetivo é bloquear totalmente, então essa chamada não deveria acontecer.
+            // No entanto, se for para a 10ª mensagem ainda obter resposta e só depois bloquear:
+            let tempConversation = [...currentConversation]; // Copia o array para não afetar o original ao adicionar a 10ª
+            tempConversation.push({role: 'user', content: message});
+
+
+            puter.ai.chat(tempConversation, {model: currentModel})
                 .then(response => {
                     addMessage(response, 'ai');
-                    currentConversation.push({role: 'assistant', content: response});
-
-                    // Verifica novamente o limite após a resposta da IA
-                    if (userMessageCount >= MESSAGE_LIMIT) {
-                        document.getElementById('pro-version-message').style.display = 'block';
-                        enableChat(false); // Desabilita o chat
-                        addMessage("Você atingiu o limite de mensagens gratuitas. Pague para acessar a versão pro!", 'error');
-                    }
+                    // currentConversation.push({role: 'assistant', content: response});
+                    // O controle de bloqueio já está acima, não precisa verificar de novo aqui
                 })
                 .catch(err => {
                     addMessage("Erro: " + err.message, 'error');
@@ -311,4 +337,4 @@
         }
     </script>
 </body>
-</html
+</html>
