@@ -107,6 +107,15 @@
             margin-bottom: 10px;
             color: #c62828;
         }
+        .pro-message {
+            background-color: #fff3e0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #e65100;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -121,6 +130,10 @@
         <div style="display: flex; justify-content: center;">
             <input type="text" id="user-input" placeholder="Digite sua mensagem..." autocomplete="off">
             <button id="send-button">Enviar</button>
+        </div>
+        <div id="pro-version-message" class="pro-message" style="display:none;">
+            Pague **R$30** para acessar a versão pro limitada! Pix: **493.897.228-02** 💳<br>
+            Após o pagamento, envie o comprovante para: **suportealloneai@gmail.com**
         </div>
     </div>
 
@@ -166,6 +179,8 @@
 
         let currentModel = "";
         let currentConversation = [];
+        let userMessageCount = 0; // Novo contador para mensagens do usuário
+        const MESSAGE_LIMIT = 10; // Limite de mensagens
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
@@ -176,10 +191,13 @@
                     ? `<b>${model.name}</b>: ${model.description}`
                     : "Selecione um modelo";
                 
-                // Limpar a conversa quando mudar de modelo
+                // Limpar a conversa e resetar o contador de mensagens quando mudar de modelo
                 currentConversation = [];
+                userMessageCount = 0;
                 document.getElementById('chat-history').innerHTML = '';
-                
+                document.getElementById('pro-version-message').style.display = 'none'; // Esconde a mensagem pro
+                enableChat(true); // Reabilita o chat
+
                 if (model) {
                     addMessage(`Você está conversando com ${model.name}. Como posso ajudar?`, 'ai');
                 }
@@ -194,18 +212,33 @@
         function sendMessage() {
             const input = document.getElementById('user-input');
             const message = input.value.trim();
+
+            // Verifica se o limite de mensagens foi atingido
+            if (userMessageCount >= MESSAGE_LIMIT) {
+                document.getElementById('pro-version-message').style.display = 'block';
+                enableChat(false); // Desabilita o chat
+                return;
+            }
+
             if (!message || !currentModel) return;
 
             addMessage(message, 'user');
             input.value = '';
             document.getElementById('loading').style.display = 'block';
             currentConversation.push({role: 'user', content: message});
+            userMessageCount++; // Incrementa o contador de mensagens do usuário
 
             // Chamada original da API Puter.ai
             puter.ai.chat(currentConversation, {model: currentModel})
                 .then(response => {
                     addMessage(response, 'ai');
                     currentConversation.push({role: 'assistant', content: response});
+
+                    // Verifica novamente o limite após a resposta da IA
+                    if (userMessageCount >= MESSAGE_LIMIT) {
+                        document.getElementById('pro-version-message').style.display = 'block';
+                        enableChat(false); // Desabilita o chat
+                    }
                 })
                 .catch(err => {
                     addMessage("Erro: " + err.message, 'error');
@@ -234,6 +267,17 @@
             
             chat.appendChild(msg);
             chat.scrollTop = chat.scrollHeight;
+        }
+
+        // Função para habilitar/desabilitar o input e o botão de enviar
+        function enableChat(enabled) {
+            document.getElementById('user-input').disabled = !enabled;
+            document.getElementById('send-button').disabled = !enabled;
+            if (!enabled) {
+                document.getElementById('user-input').placeholder = "Limite de mensagens atingido. Pague para continuar.";
+            } else {
+                document.getElementById('user-input').placeholder = "Digite sua mensagem...";
+            }
         }
     </script>
 </body>
